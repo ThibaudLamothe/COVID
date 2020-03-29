@@ -1,0 +1,15 @@
+# Unuseful files
+__pycache__
+.DS_Store
+.ipynb_checkpoints
+.vscode
+.idea
+*.pyc
+*.scrapy 
+
+# Data
+*.jl
+*.json
+credentials.json
+data
+notebook/*/
