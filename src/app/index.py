@@ -53,7 +53,7 @@ app.layout = html.Div(
             children=[
                 dcc.Tabs(
                     id="tabs",
-                    value="contamination",
+                    value="hopitaux",
                     children=[
                         tab_fr,         # contamination
                         tab_w,          # world

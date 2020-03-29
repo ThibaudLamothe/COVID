@@ -15,7 +15,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output, State
 import plotly.express as px
 from plotly import graph_objs as go
-
+from plotly.subplots import make_subplots
 
 # Load data
 from app import app
@@ -30,15 +30,15 @@ from load import df_h, df_f, df_t
 ############################################################################################
 
 
-radio_h_f = dcc.RadioItems(
-            options=[
-                {'label': 'Tous', 'value': 'All'},
-                {'label': 'Homme', 'value': 'H'},
-                {'label': 'Femme', 'value': 'F'}
-            ],
-            value='All',
-            id='radio_sex'
-        )
+# radio_h_f = dcc.RadioItems(
+#             options=[
+#                 {'label': 'Tous', 'value': 'All'},
+#                 {'label': 'Homme', 'value': 'H'},
+#                 {'label': 'Femme', 'value': 'F'}
+#             ],
+#             value='All',
+#             id='radio_sex'
+#         )
         
 radio_type_1 = dcc.RadioItems(
             options=[
@@ -70,7 +70,7 @@ tab_h = dcc.Tab(
         html.Div(className='test', id='test'),
         
         # Radio H/F/TOUS
-        radio_h_f,
+        # radio_h_f,
 
         html.Div(
             id='content_tab',
@@ -81,11 +81,11 @@ tab_h = dcc.Tab(
                     id='left_part',
                     children=[
                         # Radio selection carte
-                        radio_type_1,
+                        html.Div(radio_type_1,id='radio_line_h'),
                         # radio_type_2,
                         
                         # Carte Region
-                        dcc.Graph(id='map', config={'scrollZoom': False}),
+                        html.Div(id='map_hopitaux_place', children = [dcc.Graph(id='map', config={'scrollZoom': False})]),
 
                         # Updatable variables
                         html.Div(
@@ -93,10 +93,11 @@ tab_h = dcc.Tab(
                             children=[
 
                                 # Histo Age
-                                dcc.Graph(id='age_malade'),
+                                html.Div(dcc.Graph(id='age_malade'), className='updatable_little'),
 
                                 # Pie Chart H/G
-                                dcc.Graph(id='sexe_malade'),
+                                html.Div(dcc.Graph(id='sexe_malade'), className='updatable_little'),
+                                
                             ]
                         )
                     ]
@@ -105,10 +106,10 @@ tab_h = dcc.Tab(
                     id='right_part',
                     children=[
                         # SOS medecin
-                        dcc.Graph(id='sos_medecin'),
+                        html.Div(dcc.Graph(id='sos_medecin'), id='right_up_h'),
 
                         # Hopitaux
-                        dcc.Graph(id='hopitaux'),
+                        html.Div(dcc.Graph(id='hopitaux'), id='right_down_h'),
                     ]
                 )
             ]
@@ -131,14 +132,17 @@ def get_sexe_df(sexe, df_t=df_t, df_h=df_h, df_f=df_f):
 
   
 def get_age_region(df, jour='2020-03-21', region=11, col='urg_susp', age_conversion=age_conversion):
+    # logger.error('ici')
     if region is None:
         tmp = df.xs(jour).groupby('age')[col].sum()
     else:
-        tmp = df.xs(jour).xs(region)[col]
-    
-    tmp = tmp.loc[['__15', '15_44', '45_64', '65_74', '74__', 'all']]
+        tmp = df.xs(jour).xs(int(region))[col]
+    # logger.error('ici2')
+    # tmp = tmp.loc[['__15', '15_44', '45_64', '65_74', '74__', 'all']]
+    tmp = tmp.loc[['__15', '15_44', '45_64', '65_74', '74__']]
     ages = tmp.index.tolist()
     labels = [age_conversion['value_2_label'][age] for age in ages]
+    # logger.error(labels)
     values = tmp.values
     return labels, values
 
@@ -162,11 +166,13 @@ def get_map_info(df, jour, col):
 
 def get_infra_info(df, sexe):
     tmp = df.xs('all', level=2).groupby('date').sum()
+    tmp['ratio_sos'] = tmp['sos_susp']/tmp['sos_tot'] # devriat etre l'inverse (courbe eronnées dataprer ?)
+    tmp['ratio_urg'] = tmp['urg_susp']/tmp['urg_tot'] # devriat etre l'inverse (courbe eronnées dataprer ?)
     
-    urg_col = ['urg_tot', 'urg_susp', 'urg_hosp']
+    urg_col = ['urg_tot', 'urg_susp', 'urg_hosp', 'ratio_urg']
     urg = tmp[urg_col]
 
-    sos_col = ['sos_tot', 'sos_susp']
+    sos_col = ['sos_tot', 'sos_susp', 'ratio_sos']
     sos = tmp[sos_col]
     return urg, sos
 
@@ -175,12 +181,12 @@ def get_infra_info(df, sexe):
 ############################################################################################
 
 # Knowing current sex information
-@app.callback(
-    Output('current_sex', 'className'),
-    [Input(component_id='radio_sex', component_property='value')])
-def change_sexe(sex):
-    logger.info('Changement de sexe : {}'.format(sex))
-    return sex
+# @app.callback(
+#     Output('current_sex', 'className'),
+#     [Input(component_id='radio_sex', component_property='value')])
+# def change_sexe(sex):
+#     logger.info('Changement de sexe : {}'.format(sex))
+#     return sex
 
 
 # Map information
@@ -269,8 +275,8 @@ def count_age(col, clickData, jour, sexe):
     region = None
     if clickData:
         region = clickData['points'][0]['location']
-        logger.debug(region)
-        region = int(region)
+        # logger.debug(region)
+        # region = int(region)
 
     df = get_sexe_df(sexe)
     labels, values = get_age_region(df, jour=jour, region=region, col=col, age_conversion=age_conversion)
@@ -285,7 +291,6 @@ def count_age(col, clickData, jour, sexe):
         #hole=.5
         #marker=dict(colors=colors, line=dict(color='#000000', width=2))
     )]
-
 
 
     layout =  go.Layout(
@@ -307,24 +312,51 @@ def count_age(col, clickData, jour, sexe):
     )
 def plot_occup(sexe):
     
+
     df = get_sexe_df(sexe)
     urg, sos = get_infra_info(df, sexe)
 
-    x = urg.index
-    data =[]
-    for i in urg.columns:
-        y = urg[i]
-        data.append(go.Scatter(x=x, y=y, name=i))
-    fig_urg = {'data':data}
 
+    logger.error(urg['ratio_urg'])
+
+    layout =  go.Layout(
+        height=350,
+        margin={"r":30,"t":30,"l":30,"b":30},
+        clickmode='event+select',
+        )
+
+    # URG
+    fig_urg = make_subplots(specs=[[{"secondary_y": True}]])
+
+
+    x = urg.index
+    for i in urg.columns:
+        # logger.debug('URG')
+        # logger.debug(i)
+        y = urg[i]
+        if 'ratio' in i:
+            # logger.debug('ratio')
+            pass
+            # fig_urg.add_trace(go.Scatter(x=x, y=y, name=i, line=dict(color='royalblue',  dash='dot')), secondary_y=False)
+        else:
+            fig_urg.add_trace(go.Scatter(x=x, y=y, name=i), secondary_y=True)
+    fig_urg['layout'] = layout
+
+
+    # SOS
+    fig_sos = make_subplots(specs=[[{"secondary_y": True}]])
     x = sos.index
-    data =[]
     for i in sos.columns:
         y = sos[i]
-        data.append(go.Scatter(x=x, y=y, name=i))
-    # layout = go.Layout(clickmode='event+select')
-    fig_sos = {'data':data, 'layout':{'clickmode': 'event+select'}}
-    # fig_sos.update_layout(clickmode='event+select')
+        if 'ratio' in i:
+            pass
+        #     fig_sos.add_trace(go.Scatter(x=x, y=y, name=i,  line=dict(color='royalblue',  dash='dot')), secondary_y=False)
+        else:
+            fig_sos.add_trace(go.Scatter(x=x, y=y, name=i),  secondary_y=True)
+    fig_sos['layout'] = layout
+
+    # fig_urg.update_yaxes(title_text="<b>primary</b> yaxis title", secondary_y=False)
+    # fig_urg.update_yaxes(title_text="<b>secondary</b> yaxis title", secondary_y=True)
 
     return fig_urg , fig_sos
 
